@@ -55,6 +55,7 @@ ZeroAnalysis::visitOperation(Operation *op,
   // Rule 2: `x & y` is zero if either operand is zero, since a zero operand
   // clears every bit.  Note what this rule does *not* say: two nonzero
   // operands tell us nothing, because 1 & 2 is 0.
+  // Zeros win `&`.
   if (isa<LLVM::AndOp>(op)) {
     ZeroState lhs = operands[0]->getValue();
     ZeroState rhs = operands[1]->getValue();
@@ -68,6 +69,21 @@ ZeroAnalysis::visitOperation(Operation *op,
     if (lhs.kind == Kind::Zero || rhs.kind == Kind::Zero) {
       propagateIfChanged(result, result->join(ZeroState(Kind::Zero)));
       return success();
+    }
+  }
+
+  // Rule 3: `x | y` is nonzero if either operand is nonzero.
+  // Zeros lose `|`.
+  if (isa<LLVM::OrOp>(op)) {
+    ZeroState lhs = operands[0]->getValue();
+    ZeroState rhs = operands[1]->getValue();
+
+    // unreachable, as above
+    if (lhs.isBottom() || rhs.isBottom())
+      return success();
+
+    if (lhs.kind == Kind::NonZero || rhs.kind == Kind::NonZero) {
+      propagateIfChanged(result, result->join(ZeroState(Kind::NonZero)));
     }
   }
 
