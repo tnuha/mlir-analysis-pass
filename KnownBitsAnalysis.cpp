@@ -12,7 +12,7 @@ namespace knownbits {
 
 // TODO: update BitState
 void KnownBitsAnalysis::setToEntryState(BitLattice *lattice) {
-  propagateIfChanged(lattice, lattice->join(BitState::top()));
+  propagateIfChanged(lattice, lattice->join(BitFlagsState::top()));
 }
 
 LogicalResult

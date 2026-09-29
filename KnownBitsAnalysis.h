@@ -8,7 +8,7 @@
 
 namespace knownbits {
 
-using BitLattice = mlir::dataflow::Lattice<BitState>;
+using BitLattice = mlir::dataflow::Lattice<BitFlagsState>;
 
 class KnownBitsAnalysis
     : public mlir::dataflow::SparseForwardDataFlowAnalysis<BitLattice> {

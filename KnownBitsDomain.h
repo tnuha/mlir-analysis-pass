@@ -24,7 +24,11 @@
 #ifndef KNOWNBITS_DOMAIN_H
 #define KNOWNBITS_DOMAIN_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/raw_ostream.h"
+
+// defines the N-array that a `BitFlagsState` is :)
+#define NBITS 32
 
 namespace knownbits {
 
@@ -33,15 +37,15 @@ enum class Kind { Bottom, Zero, One, Top };
 inline const char *name(Kind kind) {
   switch (kind) {
   case Kind::Bottom:
-    return "bottom";
+    return "B";
   case Kind::Zero:
-    return "zero";
+    return "0";
   case Kind::One:
-    return "one";
+    return "1";
   case Kind::Top:
-    return "top";
+    return "T";
   }
-  return "top";
+  return "T";
 }
 
 struct BitState {
@@ -71,8 +75,59 @@ struct BitState {
   void print(llvm::raw_ostream &os) const { os << name(kind); }
 };
 
+struct BitFlagsState {
+  // TODO: revisit, is this valid memory?
+  llvm::SmallVector<BitState, NBITS> bits = bottom().bits;
+
+  BitFlagsState() = default;
+  BitFlagsState(llvm::SmallVector<BitState, NBITS> bits) : bits(bits) {}
+
+  static BitFlagsState bottom() {
+    llvm::SmallVector<BitState, NBITS> bits(NBITS, Kind::Bottom);
+    return bits;
+  }
+  static BitFlagsState top() {
+    llvm::SmallVector<BitState, NBITS> bits(NBITS, Kind::Top);
+    return bits;
+  }
+
+  bool isBottom() const {
+    BitFlagsState bot = bottom();
+    return *this == bot;
+  }
+
+  // join defined bitwise
+  static BitFlagsState join(const BitFlagsState &lhs,
+                            const BitFlagsState &rhs) {
+    BitFlagsState res;
+    for (auto i = 0; i < NBITS; i++)
+      res.bits[i] = BitState::join(lhs.bits[i], rhs.bits[i]);
+
+    return res;
+  }
+
+  bool operator==(const BitFlagsState other) const {
+    for (auto i = 0; i < NBITS; i++)
+      if (this->bits[i] != other.bits[i])
+        return false;
+    return true;
+  }
+  bool operator!=(const BitFlagsState other) const { return !(*this == other); }
+
+  void print(llvm::raw_ostream &os) const {
+    for (auto i = 0; i < NBITS; i++)
+      os << name(bits[i].kind);
+  }
+};
+
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                      const BitState &state) {
+  state.print(os);
+  return os;
+}
+
+inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                                     const BitFlagsState &state) {
   state.print(os);
   return os;
 }

@@ -55,14 +55,15 @@ struct KnownBitsAnalysisPass
       const auto *lattice = solver.lookupState<knownbits::BitLattice>(value);
       if (!lattice)
         return {};
-      knownbits::Kind kind = lattice->getValue().kind;
+      auto val = lattice->getValue();
       // Top and bottom say nothing; printing them would bury the real facts.
-      if (kind == knownbits::Kind::Top || kind == knownbits::Kind::Bottom)
+      if (val == knownbits::BitFlagsState::top() ||
+          val == knownbits::BitFlagsState::bottom())
         return {};
       std::string description;
       llvm::raw_string_ostream os(description);
       value.printAsOperand(os, asmState);
-      os << " is " << knownbits::name(kind);
+      os << " is " << val;
       return description;
     };
 
