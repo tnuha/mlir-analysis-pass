@@ -1,12 +1,15 @@
-//===- ZeroDomain.h - The abstract domain ---------------------------------===//
+// KnownBitsDomain.h - The abstract domain
 //
-// A four-point lattice recording whether an integer value is known to be zero.
+// A `BitKind`:
+// A four-point lattice recording whether a bit is known to be 0 or 1.
 //
 //        Top          nothing is known
 //       /   \
-//    Zero  NonZero
+//    Zero   One
 //       \   /
 //       Bottom       unreachable, or not yet analyzed
+//
+// A `BitFlagsState` is an N-array of `BitKind`s.
 //
 // This is the file to replace first when building a different analysis.  MLIR's
 // dataflow framework asks only three things of a lattice value:
@@ -17,16 +20,15 @@
 //     monotone -- assertions in Lattice<> check monotonicity in debug builds;
 //   * operator== and print().
 //
-//===----------------------------------------------------------------------===//
 
-#ifndef ZERO_DOMAIN_H
-#define ZERO_DOMAIN_H
+#ifndef KNOWNBITS_DOMAIN_H
+#define KNOWNBITS_DOMAIN_H
 
 #include "llvm/Support/raw_ostream.h"
 
-namespace zero {
+namespace knownbits {
 
-enum class Kind { Bottom, Zero, NonZero, Top };
+enum class Kind { Bottom, Zero, One, Top };
 
 inline const char *name(Kind kind) {
   switch (kind) {
@@ -34,27 +36,26 @@ inline const char *name(Kind kind) {
     return "bottom";
   case Kind::Zero:
     return "zero";
-  case Kind::NonZero:
-    return "nonzero";
+  case Kind::One:
+    return "one";
   case Kind::Top:
     return "top";
   }
   return "top";
 }
 
-struct ZeroState {
+struct BitState {
   Kind kind = Kind::Bottom;
 
-  ZeroState() = default;
-  /* implicit */ ZeroState(Kind kind) : kind(kind) {}
+  BitState() = default;
+  /* implicit */ BitState(Kind kind) : kind(kind) {}
 
-  static ZeroState bottom() { return Kind::Bottom; }
-  static ZeroState top() { return Kind::Top; }
+  static BitState bottom() { return Kind::Bottom; }
+  static BitState top() { return Kind::Top; }
 
   bool isBottom() const { return kind == Kind::Bottom; }
 
-  /// Least upper bound.  Two disagreeing facts lose all information.
-  static ZeroState join(const ZeroState &lhs, const ZeroState &rhs) {
+  static BitState join(const BitState &lhs, const BitState &rhs) {
     if (lhs.kind == Kind::Bottom)
       return rhs;
     if (rhs.kind == Kind::Bottom)
@@ -64,18 +65,18 @@ struct ZeroState {
     return top();
   }
 
-  bool operator==(const ZeroState &other) const { return kind == other.kind; }
-  bool operator!=(const ZeroState &other) const { return kind != other.kind; }
+  bool operator==(const BitState &other) const { return kind == other.kind; }
+  bool operator!=(const BitState &other) const { return kind != other.kind; }
 
   void print(llvm::raw_ostream &os) const { os << name(kind); }
 };
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
-                                     const ZeroState &state) {
+                                     const BitState &state) {
   state.print(os);
   return os;
 }
 
-} // namespace zero
+} // namespace knownbits
 
 #endif
