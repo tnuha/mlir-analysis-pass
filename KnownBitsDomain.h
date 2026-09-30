@@ -173,7 +173,7 @@ struct BitFlagsState {
   }
 
   void print(llvm::raw_ostream &os) const {
-    for (auto i = 0; i < NBITS; i++)
+    for (auto i = NBITS - 1; i >= 0; i--)
       os << name(bits[i].kind);
   }
 };
