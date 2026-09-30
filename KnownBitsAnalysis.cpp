@@ -49,20 +49,27 @@ KnownBitsAnalysis::visitOperation(Operation *op,
   if (op->getNumOperands() == 2) {
     BitFlagsState lhs = operands[0]->getValue();
     BitFlagsState rhs = operands[1]->getValue();
-    // Rule 2: If all bits are known, operations are identical
+    // Rule 2: Bitwise operations are super easy.
+    if (isa<LLVM::AndOp>(op)) {
+      propagateIfChanged(result, result->join(lhs & rhs));
+      return success();
+    } else if (isa<LLVM::OrOp>(op)) {
+      propagateIfChanged(result, result->join(lhs | rhs));
+      return success();
+    }
+    // Rule 3: If all bits are known, operations are identical
     // to those carried out by the raw bits.
     if (lhs.fullyKnown() && rhs.fullyKnown()) {
       // TODO: switch depending on op
+      // TODO: add more?
       auto lhs_raw = lhs.asRaw();
       auto rhs_raw = rhs.asRaw();
       BitFlagsState state = BitFlagsState::top();
-
-      // TODO: add more?
-      if (isa<LLVM::AndOp>(op))
-        state = BitFlagsState(lhs_raw & rhs_raw);
-      else if (isa<LLVM::OrOp>(op))
-        state = BitFlagsState(lhs_raw | rhs_raw);
-      else if (isa<LLVM::AddOp>(op))
+      // if (isa<LLVM::AndOp>(op))
+      //   state = BitFlagsState(lhs_raw & rhs_raw);
+      // else if (isa<LLVM::OrOp>(op))
+      //   state = BitFlagsState(lhs_raw | rhs_raw);
+      if (isa<LLVM::AddOp>(op))
         state = BitFlagsState(lhs_raw + rhs_raw);
       else if (isa<LLVM::XOrOp>(op))
         state = BitFlagsState(lhs_raw ^ rhs_raw);
@@ -73,41 +80,6 @@ KnownBitsAnalysis::visitOperation(Operation *op,
       return success();
     }
   }
-
-  // Rule 2: `x & y` is zero if either operand is zero, since a zero operand
-  // clears every bit.  Note what this rule does *not* say: two nonzero
-  // operands tell us nothing, because 1 & 2 is 0.
-  // Zeros win `&`.
-  // if (isa<LLVM::AndOp>(op)) {
-  //   ZeroState lhs = operands[0]->getValue();
-  //   ZeroState rhs = operands[1]->getValue();
-
-  // Bottom means the solver has not yet proved anything reaches this
-  // operand.  Leaving the result alone keeps the analysis optimistic; the
-  // solver will call back here once the operand moves up the lattice.
-  //   if (lhs.isBottom() || rhs.isBottom())
-  //     return success();
-
-  //   if (lhs.kind == Kind::Zero || rhs.kind == Kind::Zero) {
-  //     propagateIfChanged(result, result->join(ZeroState(Kind::Zero)));
-  //     return success();
-  //   }
-  // }
-
-  // Rule 3: `x | y` is nonzero if either operand is nonzero.
-  // Zeros lose `|`.
-  // if (isa<LLVM::OrOp>(op)) {
-  //   ZeroState lhs = operands[0]->getValue();
-  //   ZeroState rhs = operands[1]->getValue();
-
-  //   // unreachable, as above
-  //   if (lhs.isBottom() || rhs.isBottom())
-  //     return success();
-
-  //   if (lhs.kind == Kind::NonZero || rhs.kind == Kind::NonZero) {
-  //     propagateIfChanged(result, result->join(ZeroState(Kind::NonZero)));
-  //   }
-  // }
 
   return unknown();
 }
