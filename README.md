@@ -1,11 +1,8 @@
-# MLIR out-of-tree dataflow analysis template
+# MLIR out-of-tree dataflow analysis for known-bits
 
-A starting point for writing an MLIR dataflow analysis as a loadable `mlir-opt`
-plugin, with no LLVM source tree required and nothing to patch upstream.
-
-The included analysis, `zero-analysis`, decides which integer values in the LLVM
-dialect are known to be zero. It has exactly two transfer rules and is meant to
-be replaced: the point is the scaffolding around it.
+The included analysis, `knownbits-analysis`, decides
+on known facts about giving bits in 8b variables
+in a program.
 
 ## Building
 
@@ -45,12 +42,12 @@ version does not match what you are building against.
 annotated listing on stdout. Or invoke `mlir-opt` yourself:
 
 ```sh
-mlir-opt --load-pass-plugin=build/ZeroAnalysis.so \
-         --pass-pipeline='builtin.module(zero-analysis)' \
+mlir-opt --load-pass-plugin=build/KnownBitsAnalysis.so \
+         --pass-pipeline='builtin.module(knownbits-analysis)' \
          input.mlir -o /dev/null
 ```
 
-using `build/ZeroAnalysis.dylib` on macOS. The pass leaves the IR unchanged and
+using `build/KnownBitsAnalysis.dylib` on macOS. The pass leaves the IR unchanged and
 writes it to stdout as usual; the annotated view goes to stderr, so the two
 streams can be redirected independently. Annotations are comments, so the
 annotated listing is still valid MLIR. Values at top or bottom are left
@@ -64,42 +61,57 @@ clang -S -emit-llvm -o - input.c | mlir-translate --import-llvm
 
 ## What is where
 
-Two files hold the analysis; the rest is reusable scaffolding.
-
-| File | |
-|---|---|
-| `ZeroDomain.h` | The abstract domain: the lattice elements and their join. |
-| `ZeroAnalysis.cpp` | The transfer function: two rules, plus a default. |
-| `ZeroAnalysis.h` | Ties the domain to MLIR's sparse forward analysis. |
-| `Annotate.{h,cpp}` | Prints IR with a comment on each value. Domain-agnostic. |
-| `Plugin.cpp` | The pass, the solver setup, and the `mlir-opt` entry point. |
-| `cmake/RunTest.cmake` | The test runner. |
-
-To build a different analysis, replace `ZeroDomain.h` and the transfer
-functions in `ZeroAnalysis.cpp`. To rename the whole thing, rename the files,
-the `zero` namespace, and the three places `ZeroAnalysis` and `zero-analysis`
-appear in `CMakeLists.txt` and `Plugin.cpp`.
+This is a template following
+[John Regehr's MLIR dataflow analysis template](<https://github.com/regehr/mlir-analysis-pass>).
+Aside from the obvious change from zero-analysis to known bits analysis,
+the structure is much the same.
 
 ## Tests
 
-`test/zero.mlir` exercises every transfer rule. `test/zero.expected` lists
-facts that must appear in the output, and — with a leading `!` — facts that
-must not. The negative checks are the ones that matter: an unsound transfer
-function still produces plausible-looking output, and only a test that pins
-down what the analysis must *not* claim will catch it.
+`./test` contains MLIR and relevant C files
+for this analysis. An easy run after building the analysis plugin
+is `./run.sh test/foo.mlir`.
 
-Note that MLIR's printer renumbers SSA values, so the checks are written
-against operation text rather than the names in `zero.mlir`. After adding or
-reordering operations, regenerate with `./run.sh test/zero.mlir`.
+Much like the handout, comments are appended to relevant lines
+carrying information about the result abstract values.
+This is a vector of abstract bit states, those being:
+
+- `T`: top, whose concretization set is {0, 1}
+- `1`: one, whose concretization set is {1}
+- `0`: zero, whose concretization set is {0}
+- `B`: bottom, whose concretization set is {}. Due to dead code elimination, this is unexpected.
+
+Example output for `test/foo.mlir`:
+
+```mlir
+%0 = llvm.mlir.constant(5 : i8) : i8 // %0 is 00000101
+%1 = llvm.mlir.constant(10 : i8) : i8 // %1 is 00001010
+%2 = llvm.add %0, %1 : i8 // %2 is 00001111
+%3 = llvm.xor %0, %1 : i8 // %3 is 00001111
+%4 = llvm.sub %0, %1 : i8 // %4 is 11111011
+%5 = llvm.and %0, %1 : i8 // %5 is 00000000
+%6 = llvm.or %0, %1 : i8 // %6 is 00001111
+%7 = llvm.add %6, %arg1 : i8
+%8 = llvm.mlir.constant(-16 : i8) : i8 // %8 is 11110000
+%9 = llvm.and %8, %arg0 : i8 // %9 is TTTT0000
+%10 = llvm.or %1, %9 : i8 // %10 is TTTT1010
+%11 = llvm.mlir.constant(1 : i8) : i8 // %11 is 00000001
+%12 = llvm.shl %10, %11 : i8 // %12 is TTT10100
+%13 = llvm.mlir.constant(2 : i8) : i8 // %13 is 00000010
+%14 = llvm.shl %10, %13 : i8 // %14 is TT101000
+%15 = llvm.add %14, %11 : i8 // %15 is TT101001
+%16 = llvm.add %9, %8 : i8
+llvm.return %10 : i8
+```
 
 ## Notes on portability
 
 Most of the platform-specific knowledge lives in `CMakeLists.txt`, next to the
 code it affects. The parts worth knowing about:
 
-**The plugin's file name differs.** It is `ZeroAnalysis.dylib` on macOS and
-`ZeroAnalysis.so` on Linux and WSL2. Nothing in this project spells that out:
-CMake is asked via `$<TARGET_FILE:ZeroAnalysis>`, and `run.sh` probes for both.
+**The plugin's file name differs.** It is `KnownBitsAnalysis.dylib` on macOS and
+`KnownBitsAnalysis.so` on Linux and WSL2. Nothing in this project spells that out:
+CMake is asked via `$<TARGET_FILE:KnownBitsAnalysis>`, and `run.sh` probes for both.
 
 **Linking a plugin on macOS needs special flags.** The plugin deliberately
 leaves its MLIR symbols undefined, to be resolved from the `mlir-opt` process
@@ -129,30 +141,31 @@ repository is cloned by a Windows git and built inside WSL2.
 `Plugin.cpp` loads three analyses into one solver. `DeadCodeAnalysis` supplies
 reachability — without it the solver must assume every branch is taken — and
 `SparseConstantPropagation` resolves branch conditions on its behalf. These are
-prerequisites for a precise result, not optional extras. `ZeroAnalysis` then
-propagates zeroness through operations and block arguments until the solver
+prerequisites for a precise result, not optional extras. `KnownBitsAnalysis` then
+propagates known bits through operations and block arguments until the solver
 reaches a fixed point, which is when the pass queries it.
 
-The transfer function has two rules, one of each kind an analysis needs:
+8b bitflags are analyzed bitwise; given an array of N "BitKind"s.
+With a few special exceptions,
+zeroness of the individual bit is computed depending on its individual join.
+This behaves much like zero analysis.
 
-- **Constants** are zero or nonzero as written. This is the only rule that does
+Specifically, transfer functions consider the following cases:
+
+- **Constants** are interpreted by their exact bits. This is the only rule that does
   not consult its operands, and without some rule of this kind there would be
   no facts to propagate at all.
-- **`x & y` is zero if either operand is zero**, because a zero operand clears
-  every bit. Note what this does not say: two nonzero operands prove nothing,
-  since `1 & 2` is `0`.
+- **bitwise logical operators** like `&`, `|`, `^`, are each computed bitwise
+  between two different operands.
+- **left shift** is considered due to its ubiquity in C programs when considering
+  bitmasking. Naturally, assuming that the right hand side of this operation is comprised
+  of only known bits, this simply carries abstract bitvalues "leftward".
+  If any bit is unknown, precision is fully lost, so the result is entirely `Top` bits.
+- **Abstract add with unknown bits** is possible to perform via composition with bitwise operators.
+  With the special case of a carry bit with a top value making the whole vector top values,
+  the operation is a set of a few shifts, xors, and ands.
+- **Constant operations** are easy to perform by translating an abstract value
+  comprised only of known bits to a concrete C++ type, performing the operation,
+  and then translating back.
 
-Everything else is unknown. That is always sound, just imprecise — `llvm.or`
-and `llvm.add` are left unhandled in the test file precisely so their output
-shows what "unknown" looks like. Adding a third rule should be a matter of
-adding a third `if`.
-
-Values reaching the analysis from outside — function arguments, and results of
-any operation without a rule — start at top. The domain's fourth element,
-bottom, means "not yet proved reachable"; the solver starts everything there
-and raises it as facts arrive, which is what makes the fixed-point iteration
-terminate.
-
-The analysis is intraprocedural. It does not refine facts on branch conditions,
-so a value tested against zero is not known nonzero on the taken edge — that,
-and a rule for `llvm.or`, are the natural first extensions.
+The analysis is intraprocedural.
