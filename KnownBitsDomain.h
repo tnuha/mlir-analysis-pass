@@ -179,6 +179,26 @@ struct BitFlagsState {
 
     return res;
   }
+  BitFlagsState operator<<(const BitFlagsState &other) {
+    if (!other.fullyKnown())
+      return top();
+    auto rhs = other.asRaw();
+    BitFlagsState res;
+    for (auto i = 0; i < NBITS; i++)
+      res.bits[i] = this->bits[i];
+
+    while (rhs > 0) {
+      // first index adds a zero
+      Kind prev_idx_kind = Kind::Zero;
+      for (auto i = 0; i < NBITS; i++) {
+        Kind temp = res.bits[i].kind;
+        res.bits[i].kind = prev_idx_kind;
+        prev_idx_kind = temp;
+      }
+      rhs -= 1;
+    }
+    return res;
+  }
 
   bool fullyKnown() const {
     for (auto i = 0; i < NBITS; i++)

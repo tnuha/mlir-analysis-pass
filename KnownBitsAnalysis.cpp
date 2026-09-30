@@ -59,6 +59,9 @@ KnownBitsAnalysis::visitOperation(Operation *op,
     } else if (isa<LLVM::XOrOp>(op)) {
       propagateIfChanged(result, result->join(lhs ^ rhs));
       return success();
+    } else if (isa<LLVM::ShlOp>(op)) {
+      propagateIfChanged(result, result->join(lhs << rhs));
+      return success();
     }
     // Rule 3: If all bits are known, operations are identical
     // to those carried out by the raw bits.

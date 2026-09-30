@@ -13,6 +13,12 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<!llvm.ptr<270> = dense<32> : vec
     %8 = llvm.mlir.constant(240 : i8) : i8
     %9 = llvm.and %8, %arg0 : i8
     %10 = llvm.or %1, %9 : i8
+
+    %11 = llvm.mlir.constant(1 : i8) : i8
+    %12 = llvm.shl %10, %11 : i8
+
+    %13 = llvm.mlir.constant(2 : i8) : i8
+    %14 = llvm.shl %10, %13 : i8
     llvm.return %10 : i8
   }
 }
