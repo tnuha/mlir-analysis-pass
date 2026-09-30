@@ -99,11 +99,11 @@ struct BitFlagsState {
     }
   }
   // TODO: generalize to other sizes
-  uint8_t asRaw(const BitFlagsState &bits) const {
-    assert(bits.fullyKnown());
+  uint8_t asRaw() const {
+    assert(this->fullyKnown());
     uint8_t res = 0x0;
     for (auto i = 0; i < NBITS; i++)
-      res |= (bits.bits[i] == Kind::One ? 1 : 0) << i;
+      res |= (this->bits[i] == Kind::One ? 1 : 0) << i;
 
     return res;
   }

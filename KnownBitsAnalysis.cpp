@@ -46,13 +46,30 @@ KnownBitsAnalysis::visitOperation(Operation *op,
     return success();
   }
 
-  // Rule 2: If all bits are known, operations are identical
-  // to those carried out by the raw bits.
   if (op->getNumOperands() == 2) {
     BitFlagsState lhs = operands[0]->getValue();
     BitFlagsState rhs = operands[1]->getValue();
+    // Rule 2: If all bits are known, operations are identical
+    // to those carried out by the raw bits.
     if (lhs.fullyKnown() && rhs.fullyKnown()) {
       // TODO: switch depending on op
+      auto lhs_raw = lhs.asRaw();
+      auto rhs_raw = rhs.asRaw();
+      BitFlagsState state = BitFlagsState::top();
+
+      // TODO: add more?
+      if (isa<LLVM::AndOp>(op))
+        state = BitFlagsState(lhs_raw & rhs_raw);
+      else if (isa<LLVM::OrOp>(op))
+        state = BitFlagsState(lhs_raw | rhs_raw);
+      else if (isa<LLVM::AddOp>(op))
+        state = BitFlagsState(lhs_raw + rhs_raw);
+      else if (isa<LLVM::XOrOp>(op))
+        state = BitFlagsState(lhs_raw ^ rhs_raw);
+      else if (isa<LLVM::SubOp>(op))
+        state = BitFlagsState(lhs_raw - rhs_raw);
+
+      propagateIfChanged(result, result->join(state));
       return success();
     }
   }
