@@ -62,6 +62,9 @@ KnownBitsAnalysis::visitOperation(Operation *op,
     } else if (isa<LLVM::ShlOp>(op)) {
       propagateIfChanged(result, result->join(lhs << rhs));
       return success();
+    } else if (isa<LLVM::AddOp>(op)) {
+      propagateIfChanged(result, result->join(lhs + rhs));
+      return success();
     }
     // Rule 3: If all bits are known, operations are identical
     // to those carried out by the raw bits.
@@ -71,9 +74,7 @@ KnownBitsAnalysis::visitOperation(Operation *op,
       auto lhs_raw = lhs.asRaw();
       auto rhs_raw = rhs.asRaw();
       BitFlagsState state = BitFlagsState::top();
-      if (isa<LLVM::AddOp>(op))
-        state = BitFlagsState(lhs_raw + rhs_raw);
-      else if (isa<LLVM::SubOp>(op))
+      if (isa<LLVM::SubOp>(op))
         state = BitFlagsState(lhs_raw - rhs_raw);
 
       propagateIfChanged(result, result->join(state));

@@ -200,6 +200,24 @@ struct BitFlagsState {
     return res;
   }
 
+  BitFlagsState add(BitFlagsState a, BitFlagsState b) {
+    BitFlagsState carry = a & b;
+    BitFlagsState result = a ^ b;
+    BitFlagsState one(0x1);
+    BitFlagsState zero(0x0);
+    while (carry != zero) {
+      if (!carry.fullyKnown())
+        return top();
+      BitFlagsState shiftedcarry = carry << 1;
+      carry = result & shiftedcarry;
+      result = result ^ shiftedcarry;
+    }
+    return result;
+  }
+  BitFlagsState operator+(const BitFlagsState &other) {
+    return add(*this, other);
+  }
+
   bool fullyKnown() const {
     for (auto i = 0; i < NBITS; i++)
       if (this->bits[i].kind == Kind::Top)

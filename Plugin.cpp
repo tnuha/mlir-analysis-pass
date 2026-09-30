@@ -56,9 +56,9 @@ struct KnownBitsAnalysisPass
       if (!lattice)
         return {};
       auto val = lattice->getValue();
-      // Top and bottom say nothing; printing them would bury the real facts.
-      if (val == knownbits::BitFlagsState::top() ||
-          val == knownbits::BitFlagsState::bottom())
+      // remove unapplicable facts
+      if (val == knownbits::BitFlagsState::bottom() ||
+          val == knownbits::BitFlagsState::top())
         return {};
       std::string description;
       llvm::raw_string_ostream os(description);

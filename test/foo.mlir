@@ -19,6 +19,10 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<!llvm.ptr<270> = dense<32> : vec
 
     %13 = llvm.mlir.constant(2 : i8) : i8
     %14 = llvm.shl %10, %13 : i8
+
+    %15 = llvm.add %14, %11 : i8
+    %16 = llvm.add %9, %8 : i8
+    
     llvm.return %10 : i8
   }
 }
