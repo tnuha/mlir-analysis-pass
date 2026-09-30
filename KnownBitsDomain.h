@@ -73,22 +73,31 @@ struct BitState {
   bool operator!=(const BitState &other) const { return kind != other.kind; }
 
   BitState operator|(const BitState &other) {
-    if (kind == Kind::One || other.kind == Kind::One)
-      return Kind::One;
-    else if (kind == Kind::Bottom || other.kind == Kind::Bottom)
+    if (kind == Kind::Bottom || other.kind == Kind::Bottom)
       return Kind::Bottom;
+    else if (kind == Kind::One || other.kind == Kind::One)
+      return Kind::One;
     else if (kind == Kind::Zero && other.kind == Kind::Zero)
       return Kind::Zero;
     return Kind::Top;
   }
   BitState operator&(const BitState &other) {
-    if (kind == Kind::Zero || other.kind == Kind::Zero)
-      return Kind::Zero;
-    else if (kind == Kind::Bottom || other.kind == Kind::Bottom)
+    if (kind == Kind::Bottom || other.kind == Kind::Bottom)
       return Kind::Bottom;
+    else if (kind == Kind::Zero || other.kind == Kind::Zero)
+      return Kind::Zero;
     else if (kind == Kind::One && other.kind == Kind::One)
       return Kind::One;
     return Kind::Top;
+  }
+  BitState operator^(const BitState &other) {
+    if (kind == Kind::Bottom || other.kind == Kind::Bottom)
+      return Kind::Bottom;
+    else if (kind == Kind::Top || other.kind == Kind::Top)
+      return Kind::Top;
+    else if (kind == other.kind)
+      return Kind::Zero;
+    return Kind::One;
   }
 
   void print(llvm::raw_ostream &os) const { os << name(kind); }
@@ -160,6 +169,13 @@ struct BitFlagsState {
     BitFlagsState res;
     for (auto i = 0; i < NBITS; i++)
       res.bits[i] = this->bits[i] & other.bits[i];
+
+    return res;
+  }
+  BitFlagsState operator^(const BitFlagsState &other) {
+    BitFlagsState res;
+    for (auto i = 0; i < NBITS; i++)
+      res.bits[i] = this->bits[i] ^ other.bits[i];
 
     return res;
   }
