@@ -28,7 +28,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 // defines the N-array that a `BitFlagsState` is :)
-#define NBITS 32
+#define NBITS 8
 
 namespace knownbits {
 
@@ -91,6 +91,23 @@ struct BitFlagsState {
     return bits;
   }
 
+  // TODO: generalize to other sizes
+  BitFlagsState(uint8_t raw) {
+    for (auto i = 0; i < 8; i++) {
+      bits[i] = (raw & 0b1) ? Kind::One : Kind::Zero;
+      raw >>= 1;
+    }
+  }
+  // TODO: generalize to other sizes
+  uint8_t asRaw(const BitFlagsState &bits) const {
+    assert(bits.fullyKnown());
+    uint8_t res = 0x0;
+    for (auto i = 0; i < NBITS; i++)
+      res |= (bits.bits[i] == Kind::One ? 1 : 0) << i;
+
+    return res;
+  }
+
   bool isBottom() const {
     BitFlagsState bot = bottom();
     return *this == bot;
@@ -113,6 +130,14 @@ struct BitFlagsState {
     return true;
   }
   bool operator!=(const BitFlagsState other) const { return !(*this == other); }
+
+  bool fullyKnown() const {
+    for (auto i = 0; i < NBITS; i++)
+      if (this->bits[i].kind == Kind::Top)
+        return false;
+
+    return true;
+  }
 
   void print(llvm::raw_ostream &os) const {
     for (auto i = 0; i < NBITS; i++)

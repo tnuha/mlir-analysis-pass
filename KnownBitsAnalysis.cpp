@@ -5,6 +5,7 @@
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Matchers.h"
+#include "llvm/IR/Constants.h"
 
 using namespace mlir;
 
@@ -26,21 +27,35 @@ KnownBitsAnalysis::visitOperation(Operation *op,
     return success();
   };
 
-  // Only single-result integer operations are interesting here.  Calls, loads,
-  // floats, and vectors all land in `unknown`.
-  // if (op->getNumResults() != 1 || !op->getResult(0).getType().isIntOrIndex())
-  //   return unknown();
-  // ZeroLattice *result = results[0];
+  // currently only supports signless 8b integer operations
+  if (op->getNumResults() != 1 ||
+      !op->getResult(0).getType().isSignlessInteger(NBITS))
+    return unknown();
+  BitLattice *result = results[0];
 
-  // Rule 1: a constant is zero or nonzero according to what it says.
+  // Rule 1: a constant reflects its literal bit pattern.
   // This is the only rule that does not consult its operands, and without some
   // rule of this kind the analysis would have no facts to propagate at all.
-  // IntegerAttr value;
-  // if (matchPattern(op, m_Constant(&value))) {
-  //   ZeroState state = value.getValue().isZero() ? Kind::Zero : Kind::NonZero;
-  //   propagateIfChanged(result, result->join(state));
-  //   return success();
-  // }
+  IntegerAttr value;
+  if (matchPattern(op, m_Constant(&value))) {
+    // should be 8b due to result check above
+    // TODO: generalize to other sizes
+    uint8_t raw = static_cast<uint8_t>(value.getValue().getZExtValue());
+    BitFlagsState state(raw);
+    propagateIfChanged(result, result->join(state));
+    return success();
+  }
+
+  // Rule 2: If all bits are known, operations are identical
+  // to those carried out by the raw bits.
+  if (op->getNumOperands() == 2) {
+    BitFlagsState lhs = operands[0]->getValue();
+    BitFlagsState rhs = operands[1]->getValue();
+    if (lhs.fullyKnown() && rhs.fullyKnown()) {
+      // TODO: switch depending on op
+      return success();
+    }
+  }
 
   // Rule 2: `x & y` is zero if either operand is zero, since a zero operand
   // clears every bit.  Note what this rule does *not* say: two nonzero
