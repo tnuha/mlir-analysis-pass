@@ -1,3 +1,6 @@
+# temporary mlir used by llvm-reduce scripts
+tmp.mlir
+
 # Prerequisites
 *.d
 
