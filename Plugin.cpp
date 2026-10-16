@@ -20,11 +20,31 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
-#include <vector>
+#include <mlir/IR/BuiltinTypes.h>
+#include <utility>
 
 using namespace mlir;
 
 namespace {
+
+void addState(
+    llvm::SmallVector<std::pair<Value, knownbits::BitFlagsState>> states,
+    DataFlowSolver &solver, Value &val) {
+  auto type = llvm::dyn_cast<IntegerType>(val.getType());
+  if (!type || type.getWidth() != NBITS)
+    return;
+  const auto *element = solver.lookupState<knownbits::BitLattice>(val);
+  if (!element)
+    return;
+  knownbits::BitFlagsState state = element->getValue();
+  if (state != knownbits::BitFlagsState::top())
+    states.emplace_back(val, state);
+}
+
+void instrument(Value val, knownbits::BitFlagsState state) {
+  // TODO
+  assert(false);
+}
 
 struct KnownBitsAnalysisPass
     : PassWrapper<KnownBitsAnalysisPass, OperationPass<ModuleOp>> {
@@ -61,18 +81,16 @@ struct KnownBitsAnalysisPass
       return signalPassFailure();
     }
 
-    std::vector<std::pair<Value, knownbits::BitFlagsState>> states;
+    llvm::SmallVector<std::pair<Value, knownbits::BitFlagsState>> states;
     if (this->debugOption.hasValue()) {
       getOperation().walk([&](LLVM::LLVMFuncOp F) {
         for (auto &B : F.getBody()) {
           for (Value arg : B.getArguments()) {
-            // TODO
-            assert(false);
+            addState(states, solver, arg);
           }
           for (auto &op : B) {
             for (Value res : op.getResults())
-              // TODO
-              assert(false);
+              addState(states, solver, res);
           }
         }
       });
@@ -98,6 +116,9 @@ struct KnownBitsAnalysisPass
     // stderr, so that mlir-opt's stdout stays the unmodified IR and the two
     // can be redirected independently.
     knownbits::printAnnotated(getOperation(), describe, llvm::errs());
+
+    for (const auto &[val, state] : states)
+      instrument(val, state);
 
     // This pass only reads.
     markAllAnalysesPreserved();

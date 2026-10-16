@@ -104,7 +104,6 @@ struct BitState {
 };
 
 struct BitFlagsState {
-  // TODO: revisit, is this valid memory?
   llvm::SmallVector<BitState, NBITS> bits = bottom().bits;
 
   BitFlagsState() = default;
