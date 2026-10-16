@@ -6,7 +6,18 @@
 # The plugin is KnownBitsAnalysis.dylib on macOS and KnownBitsAnalysis.so on Linux and
 # WSL2, so probe for it rather than hard-coding a suffix.  Set PLUGIN or
 # BUILD_DIR to override.
-set -eu
+# set -eu
+
+WITH_DEBUG='false'
+
+while getopts 'd' opt; do
+  case $opt in
+    d)
+    WITH_DEBUG='true'
+    shift ;;
+    *) exit 1 ;;
+  esac
+done
 
 BUILD_DIR="${BUILD_DIR:-build}"
 
@@ -31,6 +42,14 @@ fi
 
 # stdout is the unchanged IR and stderr is the annotated listing; send the
 # listing to this script's stdout so it can be piped or paged.
-mlir-opt --load-pass-plugin="$PLUGIN" \
-         --pass-pipeline='builtin.module(knownbits-analysis)' \
-         "$@" 2>&1 1>/dev/null
+
+if [ $WITH_DEBUG == 'false' ]; then
+  mlir-opt --load-pass-plugin="$PLUGIN" \
+          --pass-pipeline='builtin.module(knownbits-analysis)' \
+          "$@" 2>&1 1>/dev/null
+else
+  mlir-opt --load-pass-plugin="$PLUGIN" \
+          --pass-pipeline='builtin.module(knownbits-analysis{debug=1})' \
+          "$@" 2>&1 1>/dev/null
+fi
+

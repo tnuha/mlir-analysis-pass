@@ -17,6 +17,7 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
+#include <iostream>
 
 using namespace mlir;
 
@@ -26,6 +27,12 @@ struct KnownBitsAnalysisPass
     : PassWrapper<KnownBitsAnalysisPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(KnownBitsAnalysisPass)
 
+  KnownBitsAnalysisPass() = default;
+  KnownBitsAnalysisPass(const KnownBitsAnalysisPass &pass) {}
+
+  Option<int> debugOption{
+      *this, "debug", llvm::cl::desc("enable instrumented debug assertions")};
+
   StringRef getArgument() const final { return "knownbits-analysis"; }
 
   StringRef getDescription() const final {
@@ -33,6 +40,10 @@ struct KnownBitsAnalysisPass
   }
 
   void runOnOperation() override {
+
+    if (this->debugOption.hasValue())
+      return;
+
     DataFlowConfig config;
     config.setInterprocedural(false);
 

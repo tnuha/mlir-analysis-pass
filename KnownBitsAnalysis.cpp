@@ -11,7 +11,6 @@ using namespace mlir;
 
 namespace knownbits {
 
-// TODO: update BitState
 void KnownBitsAnalysis::setToEntryState(BitLattice *lattice) {
   propagateIfChanged(lattice, lattice->join(BitFlagsState::top()));
 }
