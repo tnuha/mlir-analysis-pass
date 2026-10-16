@@ -7,17 +7,20 @@
 #include "Annotate.h"
 #include "KnownBitsAnalysis.h"
 
+#include "KnownBitsDomain.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Tools/Plugins/PassPlugin.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
-#include <iostream>
+#include <vector>
 
 using namespace mlir;
 
@@ -41,9 +44,6 @@ struct KnownBitsAnalysisPass
 
   void runOnOperation() override {
 
-    if (this->debugOption.hasValue())
-      return;
-
     DataFlowConfig config;
     config.setInterprocedural(false);
 
@@ -59,6 +59,23 @@ struct KnownBitsAnalysisPass
       getOperation().emitError(
           "knownbits analysis failed to reach a fixed point");
       return signalPassFailure();
+    }
+
+    std::vector<std::pair<Value, knownbits::BitFlagsState>> states;
+    if (this->debugOption.hasValue()) {
+      getOperation().walk([&](LLVM::LLVMFuncOp F) {
+        for (auto &B : F.getBody()) {
+          for (Value arg : B.getArguments()) {
+            // TODO
+            assert(false);
+          }
+          for (auto &op : B) {
+            for (Value res : op.getResults())
+              // TODO
+              assert(false);
+          }
+        }
+      });
     }
 
     // Query states only now that the solver has converged.
@@ -78,8 +95,8 @@ struct KnownBitsAnalysisPass
       return description;
     };
 
-    // stderr, so that mlir-opt's stdout stays the unmodified IR and the two can
-    // be redirected independently.
+    // stderr, so that mlir-opt's stdout stays the unmodified IR and the two
+    // can be redirected independently.
     knownbits::printAnnotated(getOperation(), describe, llvm::errs());
 
     // This pass only reads.
