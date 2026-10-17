@@ -20,6 +20,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
+#include <llvm/Support/Casting.h>
+#include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <utility>
 
@@ -42,8 +44,53 @@ void addState(
 }
 
 void instrument(Value val, knownbits::BitFlagsState state) {
-  // TODO
-  assert(false);
+  auto type = llvm::dyn_cast<mlir::IntegerType>(val.getType());
+  mlir::Block *B = val.getParentBlock();
+  if (!type || type.getWidth() == 1 || !B ||
+      !llvm::isa<mlir::LLVM::LLVMFuncOp>(B->getParentOp()))
+    return;
+
+  std::string msg;
+  llvm::raw_string_ostream message(msg);
+  auto function = llvm::cast<mlir::LLVM::LLVMFuncOp>(B->getParentOp());
+
+  // TODO: possibly some other case where blocks change
+  message << function.getSymName() << "\n arg no "
+          << llvm::cast<mlir::BlockArgument>(val).getArgNumber()
+          << "\n at: " << val.getLoc() << "\n expected: ";
+  state.print(message);
+  message << "\n";
+
+  mlir::OpBuilder builder(val.getContext());
+  builder.setInsertionPointAfterValue(val);
+  mlir::Location loc = val.getLoc();
+
+  auto rawOneBits = state.rawBitsWithKind(knownbits::Kind::One);
+  // value of interest should be negated bitwise and then compared
+  auto rawZeroBits = state.rawBitsWithKind(knownbits::Kind::Zero);
+
+  if (rawOneBits) {
+    // TODO: add in MLIR block + instructions
+    // justified as a constant as our prediction is across *all* runs
+    auto oneFlags = mlir::LLVM::ConstantOp::create(
+        builder, loc, val.getType(),
+        builder.getIntegerAttr(val.getType(), rawOneBits));
+
+    // TODO: comparison is an ICMP checking equality of the runtime value with
+    // `oneFlags` after having `&`'d with `zeroFlags`
+  }
+
+  if (rawZeroBits) {
+    // TODO: add in MLIR block + instructions
+    auto zeroFlags = mlir::LLVM::ConstantOp::create(
+        builder, loc, val.getType(),
+        builder.getIntegerAttr(val.getType(), rawZeroBits));
+
+    // TODO: comparison is an ICMP checking equality of the runtime value with
+    // `zeroFlags` after having negated the value and `&`ing with `zeroFlags`
+  }
+
+  // TODO: add in MLIR block + instructions
 }
 
 struct KnownBitsAnalysisPass

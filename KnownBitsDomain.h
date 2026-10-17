@@ -225,6 +225,14 @@ struct BitFlagsState {
     return true;
   }
 
+  // TODO: generalize to other sizes
+  uint8_t rawBitsWithKind(Kind bit) {
+    auto raw = 0;
+    for (auto i = 0; i < NBITS; i++)
+      raw |= (this->bits[i].kind == bit) ? (1 << i) : 0;
+    return raw;
+  }
+
   void print(llvm::raw_ostream &os) const {
     for (auto i = NBITS - 1; i >= 0; i--)
       os << name(bits[i].kind);
