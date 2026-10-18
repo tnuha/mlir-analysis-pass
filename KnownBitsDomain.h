@@ -205,8 +205,6 @@ struct BitFlagsState {
     BitFlagsState one(0x1);
     BitFlagsState zero(0x0);
     while (carry != zero) {
-      if (!carry.fullyKnown())
-        return top();
       BitFlagsState shiftedcarry = carry << 1;
       carry = result & shiftedcarry;
       result = result ^ shiftedcarry;
