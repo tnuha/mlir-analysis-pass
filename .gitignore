@@ -1,5 +1,7 @@
 # temporary mlir used by llvm-reduce scripts
 tmp.mlir
+harness
+bugfinder/harness
 
 # Prerequisites
 *.d
