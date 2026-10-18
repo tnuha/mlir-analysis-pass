@@ -52,16 +52,6 @@ void instrument(Value val, knownbits::BitFlagsState state) {
     return;
   }
 
-  std::string msg;
-  llvm::raw_string_ostream message(msg);
-  auto function = llvm::cast<mlir::LLVM::LLVMFuncOp>(B->getParentOp());
-
-  // TODO: possibly some other case where blocks change
-  message << function.getSymName() << "\n at: " << val.getLoc()
-          << "\n expected: ";
-  state.print(message);
-  message << "\n";
-
   OpBuilder builder(val.getContext());
   builder.setInsertionPointAfterValue(val);
   Location loc = val.getLoc();
@@ -208,8 +198,9 @@ struct KnownBitsAnalysisPass
       return description;
     };
 
-    for (const auto &[val, state] : states)
-      instrument(val, state);
+    if (this->debugOption.hasValue())
+      for (const auto &[val, state] : states)
+        instrument(val, state);
 
     // stderr, so that mlir-opt's stdout stays the unmodified IR and the two
     // can be redirected independently.
